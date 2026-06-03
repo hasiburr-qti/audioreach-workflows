@@ -9,7 +9,11 @@ on:
         required: true
         type: string
 
-      # === Optional knobs for lava-test-plans ===
+      build_urls:
+        description: JSON map of image_name → build URL
+        required: true
+        type: string
+
       distro_name:
         description: Default distro for lava-test-plans if not provided in matrix
         required: false
@@ -31,7 +35,6 @@ on:
         type: string
         default: testjobs
       
-      # === LAVA server configuration ===
       lava_url:
         description: LAVA server URL
         required: false
@@ -59,9 +62,6 @@ jobs:
         build_matrix: ${{ fromJSON(inputs.build_matrix) }}
 
     steps:
-
-      # If your matrix sometimes uses a string "true", replace the if: with:
-      # if: ${{ !fromJSON('["true", true]').includes(matrix.build_matrix.testing_enabled) }}
       - name: Skip if testing disabled
         if: ${{ matrix.build_matrix.testing_enabled != true }}
         env:
@@ -78,23 +78,23 @@ jobs:
           fetch-depth: 0
           repository: AudioReach/meta-audioreach
 
-      - name: Download presigned URL
-        id: download_url
-        uses: actions/download-artifact@v7
-        with:
-          name: presigned_url_${{ matrix.build_matrix.image_name }}.txt
-          path: ${{ github.workspace }}
-
       - name: Get build URL
         id: get_build_url
         uses: actions/github-script@v8
         with:
           script: |
-            const fs = require('fs')
-            const filePath = `${{ github.workspace }}/presigned_url_${{ matrix.build_matrix.image_name }}.txt`
-            const url = fs.readFileSync(filePath, 'utf8').toString().trim()
-            console.log(url)
-            core.setOutput('build_url', url)
+            const urls = JSON.parse('${{ inputs.build_urls }}')
+            const image = '${{ matrix.build_matrix.image_name }}'
+
+            const key = `presigned_url_${image}.txt`
+            const matched = urls[key]
+
+            if (!matched) {
+              throw new Error(`No exact build URL found for image: ${image}`)
+            }
+
+            console.log(`Using URL for ${image}: ${matched}`)
+            core.setOutput('build_url', matched)
 
       - name: Print trigger info
         env:
@@ -150,12 +150,11 @@ jobs:
           gh_token: ${{ secrets.GITHUB_TOKEN }}
           summary_file_name: test_job_summary
       
-      # Download ALL matching summary artifacts from parallel jobs and put into one folder.
       - name: Download Summaries
         uses: actions/download-artifact@v6
         with:
-          pattern: test_job_summary*          # match all parallel summaries
-          merge-multiple: true                # place all matched artifact contents into a single folder
+          pattern: test_job_summary*
+          merge-multiple: true
           path: summaries
 
       - name: Publish Test Job Details

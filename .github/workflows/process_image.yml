@@ -46,6 +46,7 @@ jobs:
     runs-on:
       group: GHA-AudioReach-SelfHosted-RG
       labels: [ self-hosted, self-hosted, audior-prd-u2204-x64-large-od-ephem ]
+
     strategy:
       fail-fast: false
       matrix:
@@ -155,7 +156,24 @@ jobs:
           echo $PWD
           echo "Creating tar image for qcomflash directory"
           tar -czvf qcom-multimedia-image-${{ env.IMAGE_NAME }}.rootfs.qcomflash.tar.gz ${{ env.ROOTFS_DIR }}/
-          echo "Tar image created successfully"
+
+      # ✅ Moving newly created tar files into presigned_urls path
+      - name: Move tar to presigned_urls directory
+        if: ${{ env.IMAGE_NAME != 'raspberrypi4' }}
+        shell: bash
+        run: |
+          set -e
+          mkdir -p ${{ github.workspace }}/presigned_urls
+
+          FILE="qcom-multimedia-image-${{ env.IMAGE_NAME }}.rootfs.qcomflash.tar.gz"
+
+          if [ ! -f "$FILE" ]; then
+            echo "ERROR: $FILE not found!"
+            exit 1
+          fi
+
+          mv "$FILE" ${{ github.workspace }}/presigned_urls/
+          echo "Moved $FILE to presigned_urls/"
 
       - name: Upload tar image
         id: upload_tar_image
@@ -163,5 +181,6 @@ jobs:
         uses: AudioReach/audioreach-workflows/.github/actions/aws-s3-exchanger@master
         with:
           s3_bucket: qli-prd-audior-gh-artifacts
-          local_file: ${{ github.workspace }}/qcom-multimedia-image-${{ env.IMAGE_NAME }}.rootfs.qcomflash.tar.gz
+          local_file: ${{ github.workspace }}/presigned_urls/qcom-multimedia-image-${{ env.IMAGE_NAME }}.rootfs.qcomflash.tar.gz
           mode: upload
+

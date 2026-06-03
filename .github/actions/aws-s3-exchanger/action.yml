@@ -54,7 +54,7 @@ runs:
             echo "presigned_url=${presigned_url}" >> "$GITHUB_OUTPUT"
 
             # Also write the URL into a uniquely named file for artifact download
-            echo "${presigned_url}" > "${{ github.workspace }}/presigned_url_${{ env.IMAGE_NAME }}.txt"
+            echo "${presigned_url}" > "${{ github.workspace }}/presigned_urls/presigned_url_${{ env.IMAGE_NAME }}.txt"
             ;;
           download)
             #Download The required file from s3
@@ -77,5 +77,5 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: presigned_url_${{ env.IMAGE_NAME }}.txt
-        path: ${{ github.workspace }}/presigned_url_${{ env.IMAGE_NAME }}.txt
+        path: ${{ github.workspace }}/presigned_urls/presigned_url_${{ env.IMAGE_NAME }}.txt
         retention-days: 1
